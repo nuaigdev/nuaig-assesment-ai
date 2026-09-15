@@ -1,14 +1,15 @@
 import Link from "next/link";
 
+import { AvatarStack } from "@/components/ui/avatar-stack";
 import { LocalTime } from "@/components/ui/local-time";
 import { StatusPill } from "@/components/ui/status-pill";
 import { TBody, TD, TH, THead, TR, Table } from "@/components/ui/table";
 import { formatDuration } from "@/lib/format";
-import type { InterviewStatus } from "@/lib/supabase/types";
+import type { InterviewStatus, ParticipantRole } from "@/lib/supabase/types";
 
 import { JoinButton } from "./join-button";
 
-/** Select string matching InterviewSummary. */
+/** Select string matching InterviewSummary (without participants). */
 export const INTERVIEW_SUMMARY_COLUMNS =
   "id, title, department, status, scheduled_at, started_at, duration_seconds, organizations(name), contacts(full_name)";
 
@@ -22,16 +23,23 @@ export type InterviewSummary = {
   duration_seconds: number | null;
   organizations: { name: string } | null;
   contacts: { full_name: string } | null;
+  interview_participants?: {
+    role: ParticipantRole;
+    users?: { full_name: string | null; email: string } | null;
+  }[];
 };
 
+/** The interviews table (spec §11.3). */
 export function InterviewTable({
   interviews,
   caption,
   showJoin = false,
+  showParticipants = false,
 }: {
   interviews: InterviewSummary[];
   caption: string;
   showJoin?: boolean;
+  showParticipants?: boolean;
 }) {
   return (
     <Table>
@@ -44,6 +52,7 @@ export function InterviewTable({
           <TH>Interviewee</TH>
           <TH align="right">Scheduled</TH>
           <TH align="right">Duration</TH>
+          {showParticipants && <TH>Team</TH>}
           {showJoin && (
             <TH align="right">
               <span className="sr-only">Actions</span>
@@ -73,6 +82,15 @@ export function InterviewTable({
             <TD align="right" className="text-fg-muted">
               {formatDuration(interview.duration_seconds)}
             </TD>
+            {showParticipants && (
+              <TD>
+                <AvatarStack
+                  people={(interview.interview_participants ?? []).flatMap((participant) =>
+                    participant.users ? [participant.users] : [],
+                  )}
+                />
+              </TD>
+            )}
             {showJoin && (
               <TD align="right">
                 <JoinButton
