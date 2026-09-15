@@ -2,14 +2,20 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { cn } from "@/lib/cn";
 
-export const controlClasses =
-  "h-9 w-full rounded-sm border border-border bg-surface px-3 text-sm text-fg " +
+const controlBase =
+  "w-full rounded-sm border border-border bg-surface px-3 text-sm text-fg " +
   "transition-colors duration-150 ease-out placeholder:text-fg-muted " +
   "disabled:cursor-not-allowed disabled:bg-surface-sunken disabled:text-fg-muted " +
   "aria-invalid:border-live-600";
 
+export const controlClasses = `${controlBase} h-9`;
+
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return <input className={cn(controlClasses, className)} {...props} />;
+}
+
+export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
+  return <textarea className={cn(controlBase, "min-h-20 py-2 leading-normal", className)} {...props} />;
 }
 
 /**
