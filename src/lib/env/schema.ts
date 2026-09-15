@@ -65,6 +65,9 @@ export const serverEnvSchema = publicEnvSchema.extend({
   // Shared secret the agent worker sends to /api/agent/* (spec §10.1). ElevenLabs keys live
   // on the worker (worker/.env), not in the app.
   AGENT_WORKER_SECRET: z.string().min(32, "must be at least 32 characters"),
+  // The worker's public URL, e.g. https://nuaig-worker.onrender.com. Optional: when set, pages
+  // that lead into a call ping it so a sleeping free-tier host is awake by the time it's needed.
+  AGENT_WORKER_URL: z.url().optional(),
 
   // Anthropic — required from Phase 4
   ANTHROPIC_API_KEY: secret.optional(),

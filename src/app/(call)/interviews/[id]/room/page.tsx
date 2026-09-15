@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { forbidden, notFound } from "next/navigation";
 
 import { StaffCall } from "@/components/call/staff-call";
+import { wakeAgentWorker } from "@/lib/agent/wake";
 import { requireUser } from "@/lib/auth/session";
 import { isUuid } from "@/lib/ids";
 import { loadStaffCall } from "@/lib/interviews/call";
@@ -17,6 +18,8 @@ export default async function InterviewRoomPage({ params }: PageProps<"/intervie
   const call = await loadStaffCall(user, id);
   if (!call) notFound();
   if (!call.role) forbidden();
+
+  wakeAgentWorker();
 
   return (
     <StaffCall
