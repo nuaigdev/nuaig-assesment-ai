@@ -104,9 +104,14 @@ export async function removeFromRoom(roomName: string, identity: string): Promis
 
 let dispatchService: AgentDispatchClient | undefined;
 
+// livekit.JobStatus: 0 pending, 1 running, 2 success, 3 failed.
+const JOB_ENDED_STATUSES = new Set([2, 3]);
+
 /**
- * Sends the agent worker into the room (explicit dispatch, spec §6.1). Idempotent: an existing
- * dispatch for this room is reused. The job metadata tells the worker which interview it serves.
+ * Sends the agent worker into the room (explicit dispatch, spec §6.1). Idempotent while a
+ * dispatch is still pending or running. A dispatch whose jobs have all ended (e.g. the worker
+ * crashed) would never send another agent, so it's replaced — which lets a rejoin recover.
+ * The job metadata tells the worker which interview it serves.
  */
 export async function dispatchAgent(roomName: string, interviewId: string): Promise<void> {
   dispatchService ??= new AgentDispatchClient(
@@ -114,8 +119,18 @@ export async function dispatchAgent(roomName: string, interviewId: string): Prom
     env.LIVEKIT_API_KEY,
     env.LIVEKIT_API_SECRET,
   );
-  const existing = await dispatchService.listDispatch(roomName);
-  if (existing.some((dispatch) => dispatch.agentName === AGENT_NAME)) return;
+  const existing = (await dispatchService.listDispatch(roomName)).filter(
+    (dispatch) => dispatch.agentName === AGENT_NAME,
+  );
+  const active = existing.some((dispatch) => {
+    const jobs = dispatch.state?.jobs ?? [];
+    return jobs.length === 0 || jobs.some((job) => !JOB_ENDED_STATUSES.has(job.state?.status ?? 0));
+  });
+  if (active) return;
+
+  for (const stale of existing) {
+    await dispatchService.deleteDispatch(stale.id, roomName);
+  }
   await dispatchService.createDispatch(roomName, AGENT_NAME, {
     metadata: JSON.stringify({ interviewId }),
   });

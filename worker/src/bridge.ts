@@ -1,4 +1,3 @@
-import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 import { AutoSubscribe, type JobContext } from "@livekit/agents";
 import {
   AudioFrame,
@@ -66,6 +65,23 @@ class Playback {
     this.generation += 1;
     this.source.clearQueue();
   }
+}
+
+/**
+ * A one-time URL for a Speech Engine conversation. A plain request rather than the ElevenLabs
+ * SDK: job processes stay small and start fast on CPU-throttled hosts.
+ */
+async function signedConversationUrl(apiKey: string, engineId: string): Promise<string> {
+  const url = new URL("https://api.elevenlabs.io/v1/convai/conversation/get-signed-url");
+  url.searchParams.set("agent_id", engineId);
+  const response = await fetch(url, { headers: { "xi-api-key": apiKey }, signal: AbortSignal.timeout(10_000) });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`ElevenLabs signed URL failed (${response.status}): ${body.replace(/\s+/g, " ").slice(0, 200)}`);
+  }
+  const signedUrl = (JSON.parse(body) as { signed_url?: string }).signed_url;
+  if (!signedUrl) throw new Error("ElevenLabs returned no signed URL");
+  return signedUrl;
 }
 
 function pcmToBase64(chunks: Int16Array[], totalSamples: number): string {
@@ -198,10 +214,7 @@ export async function runBridge(ctx: JobContext): Promise<void> {
 
   try {
     const session = await api.getSession(interviewId);
-    const elevenlabs = new ElevenLabsClient({ apiKey: env.ELEVENLABS_API_KEY });
-    const { signedUrl } = await elevenlabs.conversationalAi.conversations.getSignedUrl({
-      agentId: env.ELEVENLABS_SPEECH_ENGINE_ID,
-    });
+    const signedUrl = await signedConversationUrl(env.ELEVENLABS_API_KEY, env.ELEVENLABS_SPEECH_ENGINE_ID);
 
     const socket = new WebSocket(signedUrl);
     conversation = socket;

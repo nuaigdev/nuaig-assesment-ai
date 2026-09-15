@@ -1,13 +1,14 @@
 import { defineAgent, type JobContext } from "@livekit/agents";
 
-/**
- * Loaded in each job process: one job per dispatched interview. The bridge (ElevenLabs SDK,
- * WebSocket client) is imported only when a job actually runs, so starting a process — which
- * the SDK times — loads as little as possible.
- */
+// Imported at module load on purpose. The SDK loads this file while a job process is starting,
+// which is covered by INITIALIZE_PROCESS_TIMEOUT_MS. Importing later, inside `entry`, blocks the
+// event loop after start-up, where the parent's health pings go unanswered and the job is dropped
+// as "orphaned" on slow instances.
+import { runBridge } from "./bridge.js";
+
+/** Runs in a job process: one job per dispatched interview. */
 export default defineAgent({
   entry: async (ctx: JobContext) => {
-    const { runBridge } = await import("./bridge.js");
     await runBridge(ctx);
   },
 });
