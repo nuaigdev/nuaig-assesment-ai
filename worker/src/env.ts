@@ -20,6 +20,8 @@ const workerSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   /** LiveKit agent server's internal health port. */
   HEALTH_PORT: z.coerce.number().int().positive().default(8081),
+  /** Pre-started job processes. Each holds ~100 MB; use 0 on small instances (e.g. Render free, 512 MB). */
+  NUM_IDLE_PROCESSES: z.coerce.number().int().min(0).default(1),
 });
 
 const setupSchema = z.object({

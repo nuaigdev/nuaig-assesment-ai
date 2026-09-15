@@ -31,6 +31,7 @@ cli.runApp(
     apiKey: env.LIVEKIT_API_KEY,
     apiSecret: env.LIVEKIT_API_SECRET,
     port: env.HEALTH_PORT,
+    numIdleProcesses: env.NUM_IDLE_PROCESSES,
     requestFunc: async (request) => {
       await request.accept("NuAIg interviewer", AGENT_IDENTITY, "", { role: "agent" });
     },
