@@ -11,18 +11,12 @@ run(async () => {
   if (role !== "admin" && role !== "member") fail("Role must be admin or member.");
 
   const api = managementApi(loadEnv());
+  // The users audit trigger records the invite / role change / reactivation.
   const rows = await api.query(
-    `with upserted as (
-       insert into public.users (email, role)
-       values ($1, $2::public.user_role)
-       on conflict (email) do update set role = excluded.role, is_active = true
-       returning id, email, role, is_active, microsoft_oid is not null as linked
-     ), audited as (
-       insert into public.audit_log (action, entity_type, entity_id, metadata)
-       select 'user.granted', 'user', id, jsonb_build_object('email', email, 'role', role, 'via', 'db:add-user')
-       from upserted
-     )
-     select * from upserted`,
+    `insert into public.users (email, role)
+     values ($1, $2::public.user_role)
+     on conflict (email) do update set role = excluded.role, is_active = true
+     returning id, email, role, is_active, microsoft_oid is not null as linked`,
     [email, role],
   );
   console.table(rows);

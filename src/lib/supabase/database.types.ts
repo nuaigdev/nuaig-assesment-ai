@@ -448,6 +448,24 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          hits: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          hits?: number
+          key: string
+          window_start: string
+        }
+        Update: {
+          hits?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       recordings: {
         Row: {
           created_at: string
@@ -668,10 +686,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      audit_event: {
+        Args: {
+          p_action: string
+          p_entity_id: string
+          p_entity_type: string
+          p_metadata?: Json
+        }
+        Returns: undefined
+      }
+      consume_rate_limit: {
+        Args: { p_key: string; p_limit: number; p_window_seconds: number }
+        Returns: boolean
+      }
+      create_interview: {
+        Args: {
+          p_assessment_id: string
+          p_contact_id?: string
+          p_department: string
+          p_scheduled_at: string
+          p_team?: Json
+          p_template_id?: string
+        }
+        Returns: string
+      }
       is_active_staff: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_assigned: { Args: { target_interview: string }; Returns: boolean }
       is_steward: { Args: { target_interview: string }; Returns: boolean }
+      issue_invitation: {
+        Args: {
+          p_expires_at: string
+          p_interview_id: string
+          p_token_hash: string
+        }
+        Returns: string
+      }
+      revoke_invitation: {
+        Args: { p_interview_id: string }
+        Returns: undefined
+      }
+      set_interview_team: {
+        Args: { p_interview_id: string; p_team: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       end_reason:
