@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { FormDialog } from "@/components/forms/form-dialog";
 import { JoinButton } from "@/components/interviews/join-button";
+import { LiveTranscript } from "@/components/call/live-transcript";
 import { JoinLinkPanel } from "@/components/interviews/join-link-panel";
 import { TeamPicker } from "@/components/interviews/team-picker";
 import { BreadcrumbLabel } from "@/components/shell/breadcrumb-label";
@@ -199,12 +200,36 @@ export default async function InterviewPage({ params, searchParams }: PageProps<
   );
 
   const activity = activityResult?.data ?? [];
+  const notStarted = interview.status === "scheduled" || interview.status === "ready";
   const tabs: TabItem[] = [
     { id: "overview", label: "Overview", content: overview },
     {
       id: "transcript",
       label: "Transcript",
-      content: <EmptyState message="The live transcript arrives in Phase 3; completed transcripts will appear here." />,
+      content: (
+        <Card>
+          <CardHeader
+            title="Transcript"
+            description={
+              interview.status === "live"
+                ? "Updating live while the call is in progress."
+                : "Everything the interviewee and the AI interviewer said, in order. Export arrives in Phase 4."
+            }
+          />
+          <CardBody className="h-[60vh] min-h-72">
+            <LiveTranscript
+              interviewId={interview.id}
+              intervieweeName={intervieweeName}
+              appearance="console"
+              emptyMessage={
+                notStarted
+                  ? "The transcript appears here once the interview starts."
+                  : "Nothing was transcribed for this interview."
+              }
+            />
+          </CardBody>
+        </Card>
+      ),
     },
     {
       id: "recording",
@@ -262,7 +287,8 @@ export default async function InterviewPage({ params, searchParams }: PageProps<
           )
         }
       />
-      <Tabs label="Interview" items={tabs} />
+      {/* Once an interview is complete, its transcript is what people come for (spec §11.5). */}
+      <Tabs label="Interview" items={tabs} defaultTabId={interview.status === "completed" ? "transcript" : "overview"} />
     </>
   );
 }

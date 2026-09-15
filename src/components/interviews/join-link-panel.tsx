@@ -47,6 +47,7 @@ export function JoinLinkPanel({
   const now = useNow();
 
   const canManage = status === "scheduled" || status === "ready" || status === "live";
+  const ended = status === "completed" || status === "cancelled" || status === "failed";
   const recipient = intervieweeName ?? "the interviewee";
   const expiresAt = invitation ? new Date(invitation.expires_at).getTime() : null;
   const expired = expiresAt !== null && now !== null && expiresAt <= now;
@@ -80,9 +81,22 @@ export function JoinLinkPanel({
 
   return (
     <Card id="join-link" className={cn(highlight && !invitation && "ring-2 ring-brand")}>
-      <CardHeader title="Join link" description="The interviewee opens this link to join. No account or download needed." />
+      <CardHeader
+        title="Join link"
+        description={
+          ended
+            ? "Join links are revoked automatically when an interview ends."
+            : "The interviewee opens this link to join. No account or download needed."
+        }
+      />
       <CardBody className="space-y-4">
-        {revealedUrl ? (
+        {ended ? (
+          <p className="text-sm text-fg-muted">
+            {status === "completed"
+              ? "This interview is complete, so its join link no longer works."
+              : "This interview has ended, so its join link no longer works."}
+          </p>
+        ) : revealedUrl ? (
           <div className="space-y-2">
             <label htmlFor="join-url" className="block text-xs font-medium text-fg">
               Send this link to {recipient}

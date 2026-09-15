@@ -17,26 +17,52 @@ type Entry = {
   is_final: boolean;
 };
 
+/** The dark call stage and the light console use the same component with their own palette. */
+const APPEARANCE = {
+  stage: {
+    empty: "text-stage-muted",
+    agentName: "text-brand",
+    speakerName: "text-stage-fg",
+    time: "text-stage-muted",
+    final: "text-stage-fg",
+    interim: "text-stage-muted italic",
+  },
+  console: {
+    empty: "text-fg-muted",
+    agentName: "text-brand-700",
+    speakerName: "text-fg",
+    time: "text-fg-muted",
+    final: "text-fg",
+    interim: "text-fg-muted italic",
+  },
+};
+
 function formatOffset(ms: number | null) {
   const total = Math.max(0, Math.floor((ms ?? 0) / 1000));
   return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
 /**
- * The live transcript for NuAIg staff (spec §12.4): loads what exists, then follows Realtime
- * inserts and updates. Interim lines render muted and italic until they're final.
+ * The transcript for NuAIg staff (spec §12.4): loads what exists, then follows Realtime inserts
+ * and updates, so it's live during a call and complete afterwards. Interim lines render muted
+ * and italic until they're final. Reads go through RLS with the staff member's own token.
  */
 export function LiveTranscript({
   interviewId,
   intervieweeName,
+  appearance = "stage",
+  emptyMessage = "The transcript appears here as the conversation happens.",
 }: {
   interviewId: string;
   intervieweeName: string | null;
+  appearance?: keyof typeof APPEARANCE;
+  emptyMessage?: string;
 }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [status, setStatus] = useState<"connecting" | "live" | "error">("connecting");
   const [following, setFollowing] = useState(true);
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const palette = APPEARANCE[appearance];
 
   useEffect(() => {
     let cachedToken: { value: string; expiresAt: number } | null = null;
@@ -112,22 +138,20 @@ export function LiveTranscript({
     <div className="relative flex h-full flex-col">
       <div ref={scrollerRef} onScroll={onScroll} className="min-h-0 flex-1 overflow-y-auto">
         {entries.length === 0 ? (
-          <p className="text-[13px] text-stage-muted">
-            {status === "error"
-              ? "The live transcript couldn’t connect. Reopen this panel to retry."
-              : "The transcript appears here as the conversation happens."}
+          <p className={cn("text-[13px]", palette.empty)}>
+            {status === "error" ? "The transcript couldn’t load. Refresh to try again." : emptyMessage}
           </p>
         ) : (
-          <ol aria-live="polite" aria-label="Live transcript" className="space-y-4">
+          <ol aria-live="polite" aria-label="Transcript" className="space-y-4">
             {entries.map((entry) => (
               <li key={entry.id}>
                 <p className="flex items-baseline gap-2 text-xs">
-                  <span className={cn("font-medium", entry.speaker === "agent" ? "text-brand" : "text-stage-fg")}>
+                  <span className={cn("font-medium", entry.speaker === "agent" ? palette.agentName : palette.speakerName)}>
                     {speakerName(entry.speaker)}
                   </span>
-                  <span className="text-stage-muted tabular-nums">{formatOffset(entry.started_at_ms)}</span>
+                  <span className={cn("tabular-nums", palette.time)}>{formatOffset(entry.started_at_ms)}</span>
                 </p>
-                <p className={cn("mt-1 text-sm leading-relaxed", entry.is_final ? "text-stage-fg" : "text-stage-muted italic")}>
+                <p className={cn("mt-1 text-sm leading-relaxed", entry.is_final ? palette.final : palette.interim)}>
                   {entry.content}
                 </p>
               </li>
