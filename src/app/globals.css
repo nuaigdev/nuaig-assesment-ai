@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — spec §9.3. Additions beyond the spec's set are marked "Added" and exist
+ * to meet the §9.6 contrast floor (≥ 4.5:1 for text).
+ */
+:root {
+  /* Brand */
+  --nuaig-cyan: #069bdf; /* accent, indicators, speaking ring — never under white text */
+  --nuaig-cyan-600: #0585be;
+  --nuaig-cyan-050: #e8f6fd;
+  --nuaig-ink: #111111;
+  /* Added: white on --nuaig-cyan is 3.1:1 and on -600 is 4.1:1. Text-bearing cyan fills
+     (primary buttons) and cyan text on light surfaces use -700 (5.5:1); -800 is its hover. */
+  --nuaig-cyan-700: #04709f;
+  --nuaig-cyan-800: #035c83;
+
+  /* Console (light) */
+  --bg: #fbfcfd;
+  --surface: #ffffff;
+  --surface-sunken: #f4f6f8;
+  --border: #e3e8ee;
+  --text: #15191e;
+  --text-muted: #5c6875;
+  --text-subtle: #8a97a5; /* 3.0:1 on white — icons and decoration only, never text */
+
+  /* Call stage (dark) */
+  --stage: #15171a;
+  --stage-raised: #1e2126;
+  --stage-hover: #272b31;
+  --stage-border: #32373e;
+  --stage-text: #f2f5f8;
+  --stage-muted: #98a3ae;
+
+  /* Status */
+  --live: #e4453a;
+  --ok: #178a5f;
+  --warn: #b7791f;
+  /* Added: text-safe status shades and their pill tints. */
+  --live-600: #c0392b;
+  --live-050: #fdecea;
+  --ok-700: #11704d;
+  --ok-050: #e7f4ee;
+  --warn-700: #8a5a12;
+  --warn-050: #fbf1e1;
+
+  /* Radii — three steps, used consistently */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+}
+
+/* Tailwind names for the tokens: bg-surface, text-fg-muted, bg-brand-700, rounded-md, ... */
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+
+  --color-brand: var(--nuaig-cyan);
+  --color-brand-600: var(--nuaig-cyan-600);
+  --color-brand-700: var(--nuaig-cyan-700);
+  --color-brand-800: var(--nuaig-cyan-800);
+  --color-brand-050: var(--nuaig-cyan-050);
+  --color-ink: var(--nuaig-ink);
+
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-border: var(--border);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-subtle: var(--text-subtle);
+
+  --color-stage: var(--stage);
+  --color-stage-raised: var(--stage-raised);
+  --color-stage-hover: var(--stage-hover);
+  --color-stage-border: var(--stage-border);
+  --color-stage-fg: var(--stage-text);
+  --color-stage-muted: var(--stage-muted);
+
+  --color-live: var(--live);
+  --color-live-600: var(--live-600);
+  --color-live-050: var(--live-050);
+  --color-ok: var(--ok);
+  --color-ok-700: var(--ok-700);
+  --color-ok-050: var(--ok-050);
+  --color-warn: var(--warn);
+  --color-warn-700: var(--warn-700);
+  --color-warn-050: var(--warn-050);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+}
+
+@theme {
+  /* Elevation — sparing */
+  --shadow-panel: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 12px rgba(16, 24, 40, 0.06);
+  --shadow-float: 0 8px 28px rgba(0, 0, 0, 0.28);
+
+  /* The only ambient motion in the product: the live dot and (Phase 2) the speaking ring.
+     Pair with motion-reduce:animate-none for the static state. */
+  --animate-live-pulse: live-pulse 1.6s ease-in-out infinite;
+  @keyframes live-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+}
+
+@layer base {
+  body {
+    font-size: 14px;
+    line-height: 1.55;
+    font-feature-settings: "cv05", "ss01";
+    font-variant-numeric: tabular-nums;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--nuaig-cyan);
+    outline-offset: 2px;
+  }
+}
