@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AccessToken, RoomServiceClient, TrackSource } from "livekit-server-sdk";
+import { AccessToken, AgentDispatchClient, RoomServiceClient, TrackSource } from "livekit-server-sdk";
 
 import { env } from "@/lib/env/server";
 
@@ -8,6 +8,8 @@ import { env } from "@/lib/env/server";
 export const INTERVIEWEE_IDENTITY = "interviewee";
 /** The AI agent's identity (Phase 3). */
 export const AGENT_IDENTITY = "agent";
+/** The worker registers under this name and joins only rooms it is explicitly dispatched to. */
+export const AGENT_NAME = "nuaig-interviewer";
 
 export type CallRole = "interviewee" | "steward" | "observer";
 
@@ -98,6 +100,25 @@ export async function removeFromRoom(roomName: string, identity: string): Promis
   } catch (error) {
     if (!isNotFound(error)) throw error;
   }
+}
+
+let dispatchService: AgentDispatchClient | undefined;
+
+/**
+ * Sends the agent worker into the room (explicit dispatch, spec §6.1). Idempotent: an existing
+ * dispatch for this room is reused. The job metadata tells the worker which interview it serves.
+ */
+export async function dispatchAgent(roomName: string, interviewId: string): Promise<void> {
+  dispatchService ??= new AgentDispatchClient(
+    env.LIVEKIT_URL.replace(/^ws/, "http"),
+    env.LIVEKIT_API_KEY,
+    env.LIVEKIT_API_SECRET,
+  );
+  const existing = await dispatchService.listDispatch(roomName);
+  if (existing.some((dispatch) => dispatch.agentName === AGENT_NAME)) return;
+  await dispatchService.createDispatch(roomName, AGENT_NAME, {
+    metadata: JSON.stringify({ interviewId }),
+  });
 }
 
 /** Deletes the room, disconnecting everyone in it. */

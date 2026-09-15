@@ -4,7 +4,13 @@ import { z } from "zod";
 import { problem } from "@/lib/http";
 import { recordPresence } from "@/lib/interviews/call";
 import { resolveJoinToken } from "@/lib/join/resolve";
-import { INTERVIEWEE_IDENTITY, isInRoom, removeFromRoom, roomNameFor } from "@/lib/livekit/server";
+import {
+  INTERVIEWEE_IDENTITY,
+  dispatchAgent,
+  isInRoom,
+  removeFromRoom,
+  roomNameFor,
+} from "@/lib/livekit/server";
 import { clientIp } from "@/lib/request";
 
 const bodySchema = z.object({ present: z.boolean() });
@@ -31,6 +37,11 @@ export async function POST(request: NextRequest, { params }: RouteContext<"/api/
   if (body.data.present) {
     if (!(await isInRoom(roomName, INTERVIEWEE_IDENTITY))) return problem(409, "Not connected to the call.");
     await recordPresence(interviewId, { role: "interviewee" }, true);
+    // The interviewee is really here: send in the agent (idempotent). A failed dispatch must
+    // not fail the interviewee's join; staff see the agent tile stay empty.
+    await dispatchAgent(roomName, interviewId).catch((error: unknown) => {
+      console.error("Dispatching the agent failed", error);
+    });
   } else {
     await removeFromRoom(roomName, INTERVIEWEE_IDENTITY);
     await recordPresence(interviewId, { role: "interviewee" }, false);

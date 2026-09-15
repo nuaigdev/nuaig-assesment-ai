@@ -62,11 +62,9 @@ export const serverEnvSchema = publicEnvSchema.extend({
   LIVEKIT_API_KEY: secret,
   LIVEKIT_API_SECRET: secret,
 
-  // Worker ⇄ app shared secret, ElevenLabs — required from Phase 3
-  AGENT_WORKER_SECRET: z.string().min(32).optional(),
-  ELEVENLABS_API_KEY: secret.optional(),
-  ELEVENLABS_VOICE_ID: secret.optional(),
-  ELEVENLABS_AGENT_ID: secret.optional(),
+  // Shared secret the agent worker sends to /api/agent/* (spec §10.1). ElevenLabs keys live
+  // on the worker (worker/.env), not in the app.
+  AGENT_WORKER_SECRET: z.string().min(32, "must be at least 32 characters"),
 
   // Anthropic — required from Phase 4
   ANTHROPIC_API_KEY: secret.optional(),

@@ -71,7 +71,7 @@ export async function prepareRoom(interviewId: string): Promise<string> {
 }
 
 type PresenceSubject =
-  | { role: "interviewee" }
+  | { role: "interviewee" | "agent" }
   | { role: "steward" | "observer"; userId: string };
 
 /**
@@ -83,7 +83,7 @@ export async function recordPresence(
   subject: PresenceSubject,
   present: boolean,
 ): Promise<void> {
-  const userId = subject.role === "interviewee" ? null : subject.userId;
+  const userId = "userId" in subject ? subject.userId : null;
   const { error } = await createAdminClient().rpc("record_participant_presence", {
     p_interview_id: interviewId,
     p_role: subject.role,
