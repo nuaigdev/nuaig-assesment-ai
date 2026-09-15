@@ -43,6 +43,12 @@ export async function requireUser(): Promise<AppUser> {
   return user;
 }
 
+/** For route handlers, which answer with 401/403 JSON instead of redirecting. */
+export async function getActiveUser(): Promise<AppUser | null> {
+  const { user } = await getCurrentUser();
+  return user?.is_active ? user : null;
+}
+
 /** Guard for admin-only pages (spec §8). RLS still enforces the same boundary underneath. */
 export async function requireAdmin(): Promise<AppUser> {
   const user = await requireUser();
