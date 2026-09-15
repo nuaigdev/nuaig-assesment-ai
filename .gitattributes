@@ -1,0 +1,4 @@
+# Normalise line endings; the app builds on Linux (Vercel).
+* text=auto eol=lf
+*.ico binary
+*.png binary
