@@ -1,10 +1,15 @@
 "use client";
 
+import { RoomContext } from "@livekit/components-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import { CallStage } from "@/components/call/call-stage";
+import { MicCheck } from "@/components/call/mic-check";
+import { useCall } from "@/components/call/use-call";
 import { Button } from "@/components/ui/button";
 import { LocalTime } from "@/components/ui/local-time";
+import { ToastProvider } from "@/components/ui/toast";
 import type { JoinSession } from "@/lib/join/resolve";
 
 type Step = "welcome" | "consent" | "device";
@@ -29,16 +34,31 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const headingClasses = "text-2xl font-semibold tracking-[-0.02em] text-fg outline-none";
+
 /**
- * The interviewee's steps (spec §11.10). Phase 1 covers welcome and consent; the device check
- * and call arrive in Phase 2. `waiting` means it is more than 15 minutes before the start,
- * so the page refreshes itself until the interviewee can continue.
+ * The interviewee's whole experience (spec §11.10): welcome, consent, device check, then the
+ * call stage. `waiting` means it's more than 15 minutes before the start, so the page refreshes
+ * itself until the interviewee can continue.
  */
-export function JoinFlow({ session, waiting }: { session: JoinSession; waiting: boolean }) {
+export function JoinFlow(props: { token: string; session: JoinSession; waiting: boolean }) {
+  return (
+    <ToastProvider placement="bottom-center">
+      <JoinFlowSteps {...props} />
+    </ToastProvider>
+  );
+}
+
+function JoinFlowSteps({ token, session, waiting }: { token: string; session: JoinSession; waiting: boolean }) {
   const [step, setStep] = useState<Step>("welcome");
   const router = useRouter();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
+  const { room, phase, join, leave, reset } = useCall({
+    tokenUrl: `/api/join/${token}/token`,
+    presenceUrl: `/api/join/${token}/presence`,
+    publishMicrophone: true,
+  });
 
   useEffect(() => {
     if (!waiting) return;
@@ -53,12 +73,61 @@ export function JoinFlow({ session, waiting }: { session: JoinSession; waiting: 
       return;
     }
     headingRef.current?.focus();
-  }, [step]);
+  }, [step, phase.name]);
+
+  useEffect(() => {
+    if (phase.name === "ended" && phase.reason === "ended") router.replace("/join/ended");
+  }, [phase, router]);
+
+  if (room && (phase.name === "connected" || phase.name === "reconnecting")) {
+    return (
+      <RoomContext.Provider value={room}>
+        <CallStage
+          title={`${session.department} — ${session.organizationName}`}
+          role="interviewee"
+          canEnd={false}
+          intervieweeName={session.intervieweeName}
+          reconnecting={phase.name === "reconnecting"}
+          onLeave={() => void leave()}
+        />
+      </RoomContext.Provider>
+    );
+  }
+
+  if (phase.name === "ended" && phase.reason !== "ended") {
+    const copy = {
+      left: { title: "You left the interview", body: "If you left by mistake, you can rejoin while the interview is still going." },
+      lost: { title: "Your connection dropped", body: "Check your internet connection, then rejoin." },
+      removed: { title: "You were disconnected", body: "You can rejoin while the interview is still going." },
+      duplicate: {
+        title: "Joined somewhere else",
+        body: "You joined this interview from another window or device, so this one was disconnected.",
+      },
+    }[phase.reason];
+    return (
+      <div className="space-y-4 rounded-md border border-border bg-surface p-6 shadow-panel sm:p-8">
+        <h1 ref={headingRef} tabIndex={-1} className={headingClasses}>
+          {copy.title}
+        </h1>
+        <p className="text-sm text-fg-muted">{copy.body}</p>
+        {phase.reason !== "duplicate" && (
+          <Button
+            onClick={() => {
+              reset();
+              setStep("device");
+            }}
+          >
+            Rejoin interview
+          </Button>
+        )}
+      </div>
+    );
+  }
 
   if (step === "welcome") {
     return (
       <StepCard step={1}>
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-[-0.02em] text-fg outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className={headingClasses}>
           You’re joining an assessment interview with {session.organizationName}
         </h1>
         <dl className="grid gap-4 rounded-md bg-surface-sunken p-4 sm:grid-cols-2">
@@ -90,7 +159,7 @@ export function JoinFlow({ session, waiting }: { session: JoinSession; waiting: 
   if (step === "consent") {
     return (
       <StepCard step={2}>
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-[-0.02em] text-fg outline-none">
+        <h1 ref={headingRef} tabIndex={-1} className={headingClasses}>
           Before you join
         </h1>
         {/* DECISION NEEDED (spec §18.1): final consent wording, reviewed against state recording-notice norms. */}
@@ -135,16 +204,15 @@ export function JoinFlow({ session, waiting }: { session: JoinSession; waiting: 
 
   return (
     <StepCard step={3}>
-      <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-semibold tracking-[-0.02em] text-fg outline-none">
-        Microphone check
+      <h1 ref={headingRef} tabIndex={-1} className={headingClasses}>
+        Check your microphone
       </h1>
-      <p className="text-sm text-fg-muted">
-        The microphone check and the call open here. This part of the portal is still being set up; the NuAIg consultant
-        who sent your link will let you know when the interview is ready to take.
-      </p>
-      <Button variant="ghost" onClick={() => setStep("consent")}>
-        Back
-      </Button>
+      <MicCheck
+        joining={phase.name === "connecting"}
+        error={phase.name === "failed" ? phase.message : null}
+        onBack={() => setStep("consent")}
+        onJoin={(deviceId) => join(deviceId)}
+      />
     </StepCard>
   );
 }
