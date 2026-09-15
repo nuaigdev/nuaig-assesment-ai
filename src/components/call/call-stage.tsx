@@ -256,48 +256,81 @@ function ConnectionIndicator() {
 
 // Tiles ------------------------------------------------------------------------------------------
 
-function ParticipantTile({
-  participant,
-  kind,
-  name,
-  waitingText,
-  className,
-}: {
-  participant: Participant | undefined;
+type TileProps = {
   kind: "agent" | "interviewee";
   name: string;
   waitingText: string;
   className?: string;
-}) {
+};
+
+/**
+ * A stage tile. LiveKit's participant hooks throw without a participant, so the empty state
+ * is a separate hook-free component rather than a hook call with `undefined`.
+ */
+function ParticipantTile({ participant, ...props }: TileProps & { participant: Participant | undefined }) {
+  return participant ? <PresentTile participant={participant} {...props} /> : <TileFrame {...props} waiting />;
+}
+
+function PresentTile({ participant, ...props }: TileProps & { participant: Participant }) {
   const speaking = useIsSpeaking(participant);
-  const publication = participant?.getTrackPublication(Track.Source.Microphone);
-  const volume = useTrackVolume(
-    participant && publication ? { participant, publication, source: Track.Source.Microphone } : undefined,
+  const publication = participant.getTrackPublication(Track.Source.Microphone);
+  const muted = !publication || publication.isMuted;
+
+  return (
+    <TileFrame
+      {...props}
+      muted={muted}
+      status={muted ? "Muted" : speaking ? "Speaking" : " "}
+      ring={
+        speaking && publication?.track ? (
+          <SpeakingRing participant={participant} publication={publication} />
+        ) : (
+          <span aria-hidden className="absolute -inset-2 rounded-full border-2 border-transparent" />
+        )
+      }
+    />
   );
-  const muted = Boolean(participant && (!publication || publication.isMuted));
-  const level = speaking ? Math.min(1, volume * 4) : 0;
+}
 
-  const status = !participant ? waitingText : muted ? "Muted" : speaking ? "Speaking" : " ";
+/** The speaking ring: the one piece of ambient motion (§12.2). Static under reduced motion. */
+function SpeakingRing({
+  participant,
+  publication,
+}: {
+  participant: Participant;
+  publication: NonNullable<ReturnType<Participant["getTrackPublication"]>>;
+}) {
+  const volume = useTrackVolume({ participant, publication, source: Track.Source.Microphone });
+  const level = Math.min(1, volume * 4);
+  return (
+    <span
+      aria-hidden
+      style={{ "--level": level } as CSSProperties}
+      className="absolute -inset-2 rounded-full border-2 border-brand transition-[scale] duration-150 ease-out scale-[calc(1_+_var(--level)_*_0.08)] motion-reduce:scale-100"
+    />
+  );
+}
 
+function TileFrame({
+  kind,
+  name,
+  waitingText,
+  className,
+  waiting = false,
+  muted = false,
+  status,
+  ring,
+}: TileProps & { waiting?: boolean; muted?: boolean; status?: string; ring?: ReactNode }) {
   return (
     <div
       className={cn(
         "flex h-56 w-full max-w-sm min-w-0 flex-col items-center justify-center gap-5 rounded-lg bg-stage-raised px-6 sm:h-64 sm:min-w-60",
-        !participant && "opacity-70",
+        waiting && "opacity-70",
         className,
       )}
     >
       <div className="relative">
-        {/* The speaking ring: the one piece of ambient motion (§12.2). Static under reduced motion. */}
-        <span
-          aria-hidden
-          style={{ "--level": level } as CSSProperties}
-          className={cn(
-            "absolute -inset-2 rounded-full border-2 transition-[scale,opacity] duration-150 ease-out",
-            "scale-[calc(1_+_var(--level)_*_0.08)] motion-reduce:scale-100",
-            speaking ? "border-brand opacity-100" : "border-transparent opacity-0",
-          )}
-        />
+        {ring}
         <div className="flex size-24 items-center justify-center rounded-full bg-stage-hover text-2xl font-semibold text-stage-fg">
           {kind === "agent" ? <NuaigMark inverted className="size-12" /> : initials(name, name)}
         </div>
@@ -310,7 +343,7 @@ function ParticipantTile({
       <div className="text-center">
         <p className="text-[15px] font-medium text-stage-fg">{name}</p>
         <p className="mt-0.5 text-[13px] text-stage-muted" aria-live="polite">
-          {status}
+          {waiting ? waitingText : status}
         </p>
       </div>
     </div>
