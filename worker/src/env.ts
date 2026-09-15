@@ -20,8 +20,16 @@ const workerSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   /** LiveKit agent server's internal health port. */
   HEALTH_PORT: z.coerce.number().int().positive().default(8081),
-  /** Pre-started job processes. Each holds ~100 MB; use 0 on small instances (e.g. Render free, 512 MB). */
-  NUM_IDLE_PROCESSES: z.coerce.number().int().min(0).default(1),
+  /**
+   * Pre-started job processes (~100 MB each). Minimum 1: @livekit/agents treats 0 as "use my
+   * production default", which pre-starts several and exhausts small instances.
+   */
+  NUM_IDLE_PROCESSES: z.coerce.number().int().min(1, "must be at least 1 (0 means the SDK default)").default(1),
+  /**
+   * How long a job process may take to start. The SDK default (10 s) is too short on small,
+   * CPU-throttled instances such as Render's free tier, where loading the SDKs takes longer.
+   */
+  INITIALIZE_PROCESS_TIMEOUT_MS: z.coerce.number().int().positive().default(120_000),
 });
 
 const setupSchema = z.object({

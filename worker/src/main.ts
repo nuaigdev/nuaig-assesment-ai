@@ -32,6 +32,7 @@ cli.runApp(
     apiSecret: env.LIVEKIT_API_SECRET,
     port: env.HEALTH_PORT,
     numIdleProcesses: env.NUM_IDLE_PROCESSES,
+    initializeProcessTimeout: env.INITIALIZE_PROCESS_TIMEOUT_MS,
     requestFunc: async (request) => {
       await request.accept("NuAIg interviewer", AGENT_IDENTITY, "", { role: "agent" });
     },
