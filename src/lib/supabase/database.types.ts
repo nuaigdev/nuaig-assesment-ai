@@ -185,6 +185,7 @@ export type Database = {
           created_by: string | null
           department: string
           duration_seconds: number | null
+          elevenlabs_conversation_id: string | null
           end_reason: Database["public"]["Enums"]["end_reason"] | null
           ended_at: string | null
           id: string
@@ -203,6 +204,7 @@ export type Database = {
           created_by?: string | null
           department: string
           duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
           end_reason?: Database["public"]["Enums"]["end_reason"] | null
           ended_at?: string | null
           id?: string
@@ -221,6 +223,7 @@ export type Database = {
           created_by?: string | null
           department?: string
           duration_seconds?: number | null
+          elevenlabs_conversation_id?: string | null
           end_reason?: Database["public"]["Enums"]["end_reason"] | null
           ended_at?: string | null
           id?: string
@@ -686,6 +689,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      append_transcript_entry: {
+        Args: {
+          p_content: string
+          p_interview_id: string
+          p_is_final?: boolean
+          p_speaker: Database["public"]["Enums"]["speaker_role"]
+        }
+        Returns: string
+      }
       audit_event: {
         Args: {
           p_action: string
@@ -747,6 +759,10 @@ export type Database = {
       }
       set_interview_team: {
         Args: { p_interview_id: string; p_team: Json }
+        Returns: undefined
+      }
+      update_transcript_entry: {
+        Args: { p_content: string; p_entry_id: string; p_is_final?: boolean }
         Returns: undefined
       }
     }
