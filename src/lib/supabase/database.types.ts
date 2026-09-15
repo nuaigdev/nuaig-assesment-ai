@@ -710,6 +710,15 @@ export type Database = {
         }
         Returns: string
       }
+      finalize_interview: {
+        Args: {
+          p_actor?: string
+          p_failed?: boolean
+          p_interview_id: string
+          p_reason: Database["public"]["Enums"]["end_reason"]
+        }
+        Returns: Database["public"]["Enums"]["interview_status"]
+      }
       is_active_staff: { Args: never; Returns: boolean }
       is_admin: { Args: never; Returns: boolean }
       is_assigned: { Args: { target_interview: string }; Returns: boolean }
@@ -721,6 +730,16 @@ export type Database = {
           p_token_hash: string
         }
         Returns: string
+      }
+      record_participant_presence: {
+        Args: {
+          p_actor?: string
+          p_interview_id: string
+          p_present: boolean
+          p_role: Database["public"]["Enums"]["participant_role"]
+          p_user_id: string
+        }
+        Returns: undefined
       }
       revoke_invitation: {
         Args: { p_interview_id: string }
