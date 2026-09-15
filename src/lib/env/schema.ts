@@ -57,10 +57,10 @@ export const serverEnvSchema = publicEnvSchema.extend({
   // Signs the app's session cookie. Rotating it signs everyone out.
   SESSION_SECRET: z.string().min(32, "must be at least 32 characters"),
 
-  // LiveKit — required from Phase 2
-  LIVEKIT_URL: url.optional(),
-  LIVEKIT_API_KEY: secret.optional(),
-  LIVEKIT_API_SECRET: secret.optional(),
+  // LiveKit Cloud — the call room (Phase 2). The API key/secret mint tokens server-side only.
+  LIVEKIT_URL: z.url().refine((value) => /^wss?:\/\//.test(value), "must be the wss:// URL of the LiveKit project"),
+  LIVEKIT_API_KEY: secret,
+  LIVEKIT_API_SECRET: secret,
 
   // Worker ⇄ app shared secret, ElevenLabs — required from Phase 3
   AGENT_WORKER_SECRET: z.string().min(32).optional(),
