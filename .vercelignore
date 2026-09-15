@@ -1,0 +1,2 @@
+# The agent worker deploys to its own always-on host (spec §6.1), not Vercel.
+worker/

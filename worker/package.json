@@ -1,0 +1,30 @@
+{
+  "name": "nuaig-agent-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Always-on agent worker: bridges the LiveKit call room to ElevenLabs Speech Engine (spec §6.1).",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "tsx src/main.ts dev",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/main.js start",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "setup:engine": "tsx src/setup-engine.ts"
+  },
+  "dependencies": {
+    "@elevenlabs/elevenlabs-js": "^2.68.0",
+    "@livekit/agents": "^1.8.1",
+    "@livekit/rtc-node": "^0.13.35",
+    "ws": "^8.21.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.3"
+  }
+}
