@@ -95,6 +95,7 @@ function StaffCallView({
           role={role}
           canEnd={canEnd}
           intervieweeName={intervieweeName}
+          interviewId={interviewId}
           reconnecting={phase.name === "reconnecting"}
           onLeave={() => void leave()}
           onEnd={endInterview}

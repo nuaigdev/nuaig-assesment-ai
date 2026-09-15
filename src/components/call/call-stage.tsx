@@ -11,7 +11,13 @@ import {
   useRoomContext,
   useTrackVolume,
 } from "@livekit/components-react";
-import { ConnectionQuality, Track, supportsAudioOutputSelection, type Participant } from "livekit-client";
+import {
+  ConnectionQuality,
+  RoomEvent,
+  Track,
+  supportsAudioOutputSelection,
+  type Participant,
+} from "livekit-client";
 import {
   MessageSquarePlus,
   MessageSquareText,
@@ -25,7 +31,7 @@ import {
   WifiOff,
   X,
 } from "lucide-react";
-import { useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -36,11 +42,15 @@ import { useToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { initials } from "@/lib/format";
 
+import { LiveTranscript } from "./live-transcript";
+
 export type CallRole = "interviewee" | "steward" | "observer";
 type RailTab = "transcript" | "steer" | "people";
 
 const INTERVIEWEE = "interviewee";
 const AGENT = "agent";
+/** How long the agent tile shows "thinking" after the interviewee stops, if the agent hasn't spoken. */
+const THINKING_MAX_MS = 12_000;
 
 const RAIL_TABS: Record<CallRole, RailTab[]> = {
   interviewee: ["people"],
@@ -52,12 +62,14 @@ const RAIL_LABELS: Record<RailTab, string> = { transcript: "Transcript", steer: 
 /**
  * The call stage (spec §12): dark, avatar-led tiles for the interviewee and the agent only,
  * a floating control bar, and a right rail. Must render inside LiveKit's RoomContext.
+ * `interviewId` enables the live transcript (staff only).
  */
 export function CallStage({
   title,
   role,
   canEnd,
   intervieweeName,
+  interviewId,
   reconnecting,
   onLeave,
   onEnd,
@@ -66,6 +78,7 @@ export function CallStage({
   role: CallRole;
   canEnd: boolean;
   intervieweeName: string | null;
+  interviewId?: string;
   reconnecting: boolean;
   onLeave: () => void;
   onEnd?: () => Promise<void>;
@@ -73,6 +86,7 @@ export function CallStage({
   const participants = useParticipants();
   const interviewee = participants.find((participant) => participant.identity === INTERVIEWEE);
   const agent = participants.find((participant) => participant.identity === AGENT);
+  const agentThinking = useAgentThinking();
   const toast = useToast();
 
   const [rail, setRail] = useState<RailTab | null>(null);
@@ -112,6 +126,7 @@ export function CallStage({
               kind="agent"
               name="NuAIg interviewer"
               waitingText="Joining shortly"
+              thinking={agent !== undefined && agentThinking}
               className={isInterviewee ? undefined : "hidden sm:flex"}
             />
             <ParticipantTile
@@ -134,7 +149,14 @@ export function CallStage({
         </main>
 
         {rail && (
-          <CallRail tab={rail} tabs={RAIL_TABS[role]} onTab={setRail} onClose={() => setRail(null)} />
+          <CallRail
+            tab={rail}
+            tabs={RAIL_TABS[role]}
+            interviewId={interviewId}
+            intervieweeName={interviewee?.name || intervieweeName}
+            onTab={setRail}
+            onClose={() => setRail(null)}
+          />
         )}
       </div>
 
@@ -155,7 +177,7 @@ export function CallStage({
           open={confirmEnd}
           onClose={() => !ending && setConfirmEnd(false)}
           title="End the interview?"
-          description="This ends the call for everyone. The interviewee can’t rejoin afterwards."
+          description="This ends the call for everyone and saves the transcript. The interviewee can’t rejoin afterwards."
           footer={
             <>
               <Button variant="secondary" onClick={() => setConfirmEnd(false)} disabled={ending}>
@@ -170,6 +192,44 @@ export function CallStage({
       )}
     </div>
   );
+}
+
+/**
+ * True between the interviewee finishing and the agent starting to speak (spec §12.5):
+ * silence without feedback reads as a broken call. Clears when the agent speaks, the
+ * interviewee resumes, or after THINKING_MAX_MS.
+ */
+function useAgentThinking(): boolean {
+  const room = useRoomContext();
+  const [thinking, setThinking] = useState(false);
+
+  useEffect(() => {
+    let intervieweeWasSpeaking = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+
+    const onSpeakersChanged = (speakers: Participant[]) => {
+      const identities = new Set(speakers.map((speaker) => speaker.identity));
+      if (identities.has(AGENT) || identities.has(INTERVIEWEE)) {
+        clearTimeout(timeout);
+        setThinking(false);
+        intervieweeWasSpeaking = identities.has(INTERVIEWEE);
+        return;
+      }
+      if (intervieweeWasSpeaking) {
+        intervieweeWasSpeaking = false;
+        setThinking(true);
+        timeout = setTimeout(() => setThinking(false), THINKING_MAX_MS);
+      }
+    };
+
+    room.on(RoomEvent.ActiveSpeakersChanged, onSpeakersChanged);
+    return () => {
+      room.off(RoomEvent.ActiveSpeakersChanged, onSpeakersChanged);
+      clearTimeout(timeout);
+    };
+  }, [room]);
+
+  return thinking;
 }
 
 // Top bar ---------------------------------------------------------------------------------------
@@ -260,6 +320,7 @@ type TileProps = {
   kind: "agent" | "interviewee";
   name: string;
   waitingText: string;
+  thinking?: boolean;
   className?: string;
 };
 
@@ -271,16 +332,18 @@ function ParticipantTile({ participant, ...props }: TileProps & { participant: P
   return participant ? <PresentTile participant={participant} {...props} /> : <TileFrame {...props} waiting />;
 }
 
-function PresentTile({ participant, ...props }: TileProps & { participant: Participant }) {
+function PresentTile({ participant, thinking = false, ...props }: TileProps & { participant: Participant }) {
   const speaking = useIsSpeaking(participant);
   const publication = participant.getTrackPublication(Track.Source.Microphone);
-  const muted = !publication || publication.isMuted;
+  const muted = props.kind === "interviewee" && (!publication || publication.isMuted);
+  const showThinking = thinking && !speaking;
 
   return (
     <TileFrame
       {...props}
       muted={muted}
-      status={muted ? "Muted" : speaking ? "Speaking" : " "}
+      thinking={showThinking}
+      status={muted ? "Muted" : speaking ? "Speaking" : showThinking ? "Thinking" : " "}
       ring={
         speaking && publication?.track ? (
           <SpeakingRing participant={participant} publication={publication} />
@@ -311,6 +374,20 @@ function SpeakingRing({
   );
 }
 
+function ThinkingDots() {
+  return (
+    <span aria-hidden className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-stage px-2 py-1 ring-2 ring-stage-raised">
+      {[0, 150, 300].map((delay) => (
+        <span
+          key={delay}
+          style={{ animationDelay: `${delay}ms` }}
+          className="size-1.5 rounded-full bg-stage-fg animate-bounce motion-reduce:animate-none"
+        />
+      ))}
+    </span>
+  );
+}
+
 function TileFrame({
   kind,
   name,
@@ -318,6 +395,7 @@ function TileFrame({
   className,
   waiting = false,
   muted = false,
+  thinking = false,
   status,
   ring,
 }: TileProps & { waiting?: boolean; muted?: boolean; status?: string; ring?: ReactNode }) {
@@ -339,6 +417,7 @@ function TileFrame({
             <MicOff aria-hidden className="size-3.5" />
           </span>
         )}
+        {thinking && <ThinkingDots />}
       </div>
       <div className="text-center">
         <p className="text-[15px] font-medium text-stage-fg">{name}</p>
@@ -464,11 +543,15 @@ function ControlBar({
 function CallRail({
   tab,
   tabs,
+  interviewId,
+  intervieweeName,
   onTab,
   onClose,
 }: {
   tab: RailTab;
   tabs: RailTab[];
+  interviewId?: string;
+  intervieweeName: string | null;
   onTab: (tab: RailTab) => void;
   onClose: () => void;
 }) {
@@ -506,11 +589,12 @@ function CallRail({
       </div>
       <div role="tabpanel" aria-label={RAIL_LABELS[tab]} className="min-h-0 flex-1 overflow-y-auto p-4">
         {tab === "people" && <PeopleList />}
-        {tab === "transcript" && (
-          <p className="text-[13px] text-stage-muted">
-            The live transcript appears here once the AI interviewer is connected (Phase 3).
-          </p>
-        )}
+        {tab === "transcript" &&
+          (interviewId ? (
+            <LiveTranscript interviewId={interviewId} intervieweeName={intervieweeName} />
+          ) : (
+            <p className="text-[13px] text-stage-muted">The transcript is available to NuAIg staff.</p>
+          ))}
         {tab === "steer" && (
           <p className="text-[13px] text-stage-muted">Steering the agent arrives in Phase 6.</p>
         )}
