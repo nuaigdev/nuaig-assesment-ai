@@ -13,6 +13,18 @@ const nextConfig: NextConfig = {
     // Enables forbidden() for admin-only routes.
     authInterrupts: true,
   },
+  async headers() {
+    return [
+      {
+        // Magic-link tokens live in these URLs: never leak them via Referer, never index them.
+        source: "/join/:path*",
+        headers: [
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
